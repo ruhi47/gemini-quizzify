@@ -1,15 +1,16 @@
 import sys
 import os
 import streamlit as st
+
 sys.path.append(os.path.abspath('../../'))
 from tasks.task_3.task_3 import DocumentProcessor
 from tasks.task_4.task_4 import EmbeddingClient
-
 
 # Import Task libraries
 from langchain_core.documents import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.vectorstores import Chroma
+
 
 class ChromaCollectionCreator:
     def __init__(self, processor, embed_model):
@@ -18,10 +19,10 @@ class ChromaCollectionCreator:
         :param processor: An instance of DocumentProcessor that has processed documents.
         :param embeddings_config: An embedding client for embedding documents.
         """
-        self.processor = processor      # This will hold the DocumentProcessor from Task 3
+        self.processor = processor  # This will hold the DocumentProcessor from Task 3
         self.embed_model = embed_model  # This will hold the EmbeddingClient from Task 4
-        self.db = None                  # This will hold the Chroma collection
-    
+        self.db = None  # This will hold the Chroma collection
+
     def create_chroma_collection(self):
         """
         Task: Create a Chroma collection from the documents processed by the DocumentProcessor instance.
@@ -47,30 +48,29 @@ class ChromaCollectionCreator:
         
         Note: Ensure to replace placeholders like [Your code here] with actual implementation code as per the instructions above.
         """
-        
+
         # Step 1: Check for processed documents
         if len(self.processor.pages) == 0:
             st.error("No documents found!", icon="🚨")
             return
 
         # Step 2: Split documents into text chunks
-        # Use a TextSplitter from Langchain to split the documents into smaller text chunks
-        # https://python.langchain.com/docs/modules/data_connection/document_transformers/character_text_splitter
-        # [Your code here for splitting documents]
-        
+        text_splitter = CharacterTextSplitter(
+            separator="\n",
+            chunk_size=1000,
+            chunk_overlap=200,
+        )
+        texts = text_splitter.split_documents([Document(page_content=page) for page in self.processor.pages])
+
         if texts is not None:
             st.success(f"Successfully split pages to {len(texts)} documents!", icon="✅")
+        self.db = Chroma.from_documents(texts, self.embed_model)
 
-        # Step 3: Create the Chroma Collection
-        # https://docs.trychroma.com/
-        # Create a Chroma in-memory client using the text chunks and the embeddings model
-        # [Your code here for creating Chroma collection]
-        
         if self.db:
             st.success("Successfully created Chroma Collection!", icon="✅")
         else:
             st.error("Failed to create Chroma Collection!", icon="🚨")
-    
+
     def query_chroma_collection(self, query) -> Document:
         """
         Queries the created Chroma collection for documents similar to the query.
@@ -87,23 +87,24 @@ class ChromaCollectionCreator:
         else:
             st.error("Chroma Collection has not been created!", icon="🚨")
 
+
 if __name__ == "__main__":
-    processor = DocumentProcessor() # Initialize from Task 3
+    processor = DocumentProcessor()  # Initialize from Task 3
     processor.ingest_documents()
-    
+
     embed_config = {
         "model_name": "textembedding-gecko@003",
-        "project": "YOUR PROJECT ID HERE",
-        "location": "us-central1"
+        "project": "PROJECT-ID-HERE",
+        "location": "REGION"
     }
-    
-    embed_client = EmbeddingClient(**embed_config) # Initialize from Task 4
-    
+
+    embed_client = EmbeddingClient(**embed_config)  # Initialize from Task 4
+
     chroma_creator = ChromaCollectionCreator(processor, embed_client)
-    
+
     with st.form("Load Data to Chroma"):
         st.write("Select PDFs for Ingestion, then click Submit")
-        
+
         submitted = st.form_submit_button("Submit")
         if submitted:
             chroma_creator.create_chroma_collection()

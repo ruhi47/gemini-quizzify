@@ -1,7 +1,13 @@
 import sys
 import os
+import tempfile
+import uuid
+
 import streamlit as st
+from langchain_community.document_loaders import PyPDFLoader
+
 sys.path.append(os.path.abspath('../../'))
+
 from tasks.task_3.task_3 import DocumentProcessor
 from tasks.task_4.task_4 import EmbeddingClient
 from tasks.task_5.task_5 import ChromaCollectionCreator
@@ -45,41 +51,86 @@ if __name__ == "__main__":
     # Configuration for EmbeddingClient
     embed_config = {
         "model_name": "textembedding-gecko@003",
-        "project": "YOUR PROJECT ID HERE",
-        "location": "us-central1"
+        "project": "PROJECT-ID-HERE",
+        "location": "REGION"
     }
-    
-    screen = st.empty() # Screen 1, ingest documents
-    with screen.container():
-        st.header("Quizzify")
-        ####### YOUR CODE HERE #######
-        # 1) Initalize DocumentProcessor and Ingest Documents from Task 3
-        # 2) Initalize the EmbeddingClient from Task 4 with embed config
-        # 3) Initialize the ChromaCollectionCreator from Task 5
-        ####### YOUR CODE HERE #######
+    processor = DocumentProcessor()  # Initialize from Task 3
 
-        with st.form("Load Data to Chroma"):
-            st.subheader("Quiz Builder")
-            st.write("Select PDFs for Ingestion, the topic for the quiz, and click Generate!")
-            
-            ####### YOUR CODE HERE #######
-            # 4) Use streamlit widgets to capture the user's input
-            # 4) for the quiz topic and the desired number of questions
-            ####### YOUR CODE HERE #######
-            
-            document = None
-            
-            submitted = st.form_submit_button("Generate a Quiz!")
-            if submitted:
-                ####### YOUR CODE HERE #######
-                # 5) Use the create_chroma_collection() method to create a Chroma collection from the processed documents
-                ####### YOUR CODE HERE #######
-                    
-                # Uncomment the following lines to test the query_chroma_collection() method
-                # document = chroma_creator.query_chroma_collection(topic_input) 
-                
-    if document:
-        screen.empty() # Screen 2
-        with st.container():
-            st.header("Query Chroma for Topic, top Document: ")
-            st.write(document)
+    embed_client = EmbeddingClient(**embed_config)  # Initialize from Task 4
+
+    chroma_creator = ChromaCollectionCreator(processor, embed_client)  # Initialize the ChromaCreator from Task 5
+
+    with st.form("Load Data to Chroma"):
+        st.subheader("Quiz Builder")
+        st.write("Select PDFs for Ingestion, the topic for the quiz, and click Generate!")
+
+        uploaded_files = st.file_uploader(
+            label="Upload multiple PDF files.",
+            type=['pdf'],
+            accept_multiple_files=True
+        )
+        # Topic input
+        topic_input = st.text_input("Topic for Generative Quiz", placeholder="Enter the topic of the document")
+
+        # Number of questions slider
+        num_questions = st.slider("Number of Questions", min_value=1, max_value=10, value=5)
+
+        submitted = st.form_submit_button("Generate a Quiz!")
+        if submitted:
+            if uploaded_files:
+                for uploaded_file in uploaded_files:
+                    try:
+                        # Generate a unique identifier to append to the file's original name
+                        unique_id = uuid.uuid4().hex
+                        original_name, file_extension = os.path.splitext(uploaded_file.name)
+                        temp_file_name = f"{original_name}_{unique_id}{file_extension}"
+                        temp_file_path = os.path.join(tempfile.gettempdir(), temp_file_name)
+
+                        # Write the uploaded PDF to a temporary file
+                        with open(temp_file_path, 'wb') as f:
+                            f.write(uploaded_file.getvalue())
+
+                        # Step 2: Process the temporary file
+                        loader = PyPDFLoader(temp_file_path)
+                        document = loader.load()
+
+                        # Step 3: Then, Add the extracted pages to the 'pages' list.
+                        for page in document:
+                            processor.pages.append(page.page_content)
+
+                        # Clean up by deleting the temporary file.
+                        os.unlink(temp_file_path)
+                    except Exception as e:
+                        st.error(f"Error processing file {uploaded_file.name}: {e}")
+
+                st.write(f"Total pages processed: {len(processor.pages)}")
+
+                # Create the Chroma collection
+                chroma_creator.create_chroma_collection()
+                if chroma_creator.db:
+                    # st.success("Successfully created Chroma Collection!", icon="✅")
+
+                    # Query the Chroma collection for the topic input
+                    document = chroma_creator.query_chroma_collection(topic_input)
+
+                    # Display the result if a document is found
+                    if document:
+                        st.success("Successfully created Chroma Collection!", icon="✅")
+                        st.empty()
+                        st.header("Query Chroma for Topic, Top Document: ")
+                        st.write(document)
+                    else:
+                        st.error("No document found for the given topic.", icon="🚨")
+                else:
+                    st.error("Failed to create Chroma Collection!", icon="🚨")
+
+            else:
+                st.error("Please upload at least one PDF file.", icon="🚨")
+# document = None
+# if chroma_creator.db:
+#     document = chroma_creator.query_chroma_collection(topic_input)
+#
+# if document:
+#     st.empty()
+#     st.header("Query Chroma for Topic, Top Document: ")
+#     st.write(document)
