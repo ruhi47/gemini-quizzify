@@ -1,5 +1,7 @@
 # Gemini Quizzify
 
+![Image](https://github.com/ruhi47/gemini-quizzify/blob/main/gemini-quizzify.jpg) 
+
 ## Welcome to Gemini Quizzify
 an intelligent and interactive quiz generation application built to transform documents into engaging quizzes. Whether you're an educator, a student, or a knowledge enthusiast, Gemini Quizzify makes it simple and fun to test and improve your understanding of any topic.
 
