@@ -177,8 +177,8 @@ if __name__ == "__main__":
 
     embed_config = {
         "model_name": "textembedding-gecko@003",
-        "project": "sunny-inn-424219-s1",
-        "location": "us-central1"
+        "project": "PROJECT_ID_HERE",
+        "location": "REGION"
     }
 
     screen = st.empty()
